@@ -15,6 +15,7 @@
 module Main (main) where
 
 import           Data.Foldable                         (foldMap)
+import           Data.Maybe                            (fromJust)
 import           Data.Monoid
 import           Data.String
 import           Test.Tasty.Bench
@@ -75,6 +76,13 @@ smallIntegerData = map fromIntegral intData
 largeIntegerData :: [Integer]
 largeIntegerData = map (* (10 ^ (100 :: Integer))) smallIntegerData
 
+{-# NOINLINE smallIntegerDataAsByteString #-}
+smallIntegerDataAsByteString :: [S8.ByteString]
+smallIntegerDataAsByteString = map (S8.pack . show) smallIntegerData
+
+{-# NOINLINE largeIntegerDataAsByteString #-}
+largeIntegerDataAsByteString :: [S8.ByteString]
+largeIntegerDataAsByteString = map (S8.pack . show) largeIntegerData
 
 {-# NOINLINE floatData #-}
 floatData :: [Float]
@@ -370,6 +378,10 @@ main = do
 
       , benchFE "floatHexFixed"    $ fromIntegral >$< P.floatHexFixed
       , benchFE "doubleHexFixed"   $ fromIntegral >$< P.doubleHexFixed
+      ]
+    , bgroup "Data.ByteString.Char8"
+      [ bench "readInt" $ whnf (map (snd . fromJust . S8.readInt)) largeIntegerDataAsByteString
+      , bench "readInt" $ whnf (map (snd . fromJust . S8.readInt)) smallIntegerDataAsByteString
       ]
     , bgroup "intersperse"
       [ bench "intersperse" $ whnf (S.intersperse 32) byteStringData
