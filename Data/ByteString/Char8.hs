@@ -1014,8 +1014,8 @@ readInt bs = case B.uncons bs of
         unsafeWithForeignPtr fp $ \ptr -> do
             let end = ptr `plusPtr` len
             (!n, !a, !inRange) <- if positive
-                then digits intmaxQuot10 intmaxRem10 end ptr 0 0
-                else digits intminQuot10 intminRem10 end ptr 0 0
+                then digits intmaxQuot10 intmaxRem10 end ptr 0
+                else digits intminQuot10 intminRem10 end ptr 0
             if inRange
                 then if n < len
                      then let rest = B.BS (fp `B.plusForeignPtr` n) (len - n)
@@ -1029,20 +1029,20 @@ readInt bs = case B.uncons bs of
         -- the provided digits (end of input or non-digit encountered).
         digits !maxq !maxr !e !ptr = go ptr
           where
-            go :: Ptr Word8 -> Int -> Word -> IO (Int, Word, Bool)
-            go !p !b !a | p == e = return (b, a, True)
-            go !p !b !a = do
-                !w <- fromIntegral <$> peek p
-                let !d = w - 0x30
-                if d > 9 -- No more digits
-                    then return (b, a, True)
-                    else if a < maxq -- Look for more
-                    then go (p `plusPtr` 1) (b + 1) (a * 10 + d)
-                    else if a > maxq -- overflow
-                    then return (b, a, False)
-                    else if d <= maxr -- Ideally this will be the last digit
-                    then go (p `plusPtr` 1) (b + 1) (a * 10 + d)
-                    else return (b, a, False) -- overflow
+            go :: Ptr Word8 -> Word -> IO (Int, Word, Bool)
+            go !p !a | p == e = return (p `minusPtr` ptr, a, True)
+            go !p !a = do
+              !w <- fromIntegral <$> peek p
+              let !d = w - 0x30
+              if d > 9 -- No more digits
+                  then return (p `minusPtr` ptr, a, True)
+                  else if a < maxq -- Look for more
+                  then go (p `plusPtr` 1) (a * 10 + d)
+                  else if a > maxq -- overflow
+                  then return (p `minusPtr` ptr, a, False)
+                  else if d <= maxr -- Ideally this will be the last digit
+                  then go (p `plusPtr` 1) (a * 10 + d)
+                  else return (p `minusPtr` ptr, a, False) -- overflow
 
         -- | Plausible success, provided we got at least one digit!
         result !nbytes !acc str
